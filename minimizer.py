@@ -65,6 +65,8 @@ def build_all_urls(unique_schedules, currency,
     all_urls = []
     for combo in unique_schedules:
         for trip in combo:
+            if 'xxxNONExxx' in trip['dest']:
+                break
             builder_url = trip['url']
             trip['url'] = (builder_url.replace('{DEPART CODE}', trip['orig'])
                 .replace('{DEST CODE}', trip['dest'])
@@ -83,19 +85,30 @@ def build_all_urls(unique_schedules, currency,
 def get_cheapest_prices(chrome_driver):
     cheapest_prices = {}
     number_of_windows = len(chrome_driver.window_handles)
+    NOT_FOUND_TEXT = 'Oh dear – no results found!'
     print('Finding some of the cheapest prices (' + str(number_of_windows) + ')')
     for idx in range(number_of_windows):
         chrome_driver.switch_to.window(chrome_driver.window_handles[idx])
         try:
-            element1 = WebDriverWait(chrome_driver, 60).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, ".flt-subhead1.gws-flights-results__price.gws-flights-results__cheapest-price")
+            if (NOT_FOUND_TEXT in chrome_driver.page_source):
+                cheapest_prices[chrome_driver.current_url] = 999999
+                print('.', end='', flush=True)
+            else:
+                element1 = WebDriverWait(chrome_driver, 20).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, ".flt-subhead1.gws-flights-results__price.gws-flights-results__cheapest-price")
+                        )
                     )
-                )
-            cheapest_prices[chrome_driver.current_url] = int(element1.text[1:])
-            print('.', end='', flush=True)
-        except:
-            print('Error', element1)
+                cheapest_prices[chrome_driver.current_url] = int(element1.text[1:].replace(',', ''))
+                print('.', end='', flush=True)
+        except TimeoutException:
+            if (NOT_FOUND_TEXT in chrome_driver.page_source):
+                cheapest_prices[chrome_driver.current_url] = 999999
+                print('.', end='', flush=True)
+            else:
+                print('Error', element1)
+
+
     return cheapest_prices
 
 
@@ -137,12 +150,13 @@ def pingGoogleFlights():
     #     LOCATION_CODES['Dublin']
     # ]
     # tmp_destination_locations = [
-    #     LOCATION_CODES['Amsterdam-ANY'], 
-    #     LOCATION_CODES['Prague-ANY'], 
     #     LOCATION_CODES['Porto'],
     #     LOCATION_CODES['Florence'],
     #     LOCATION_CODES['Madrid']
     # ]
+
+    NO_TRAVEL_CODE = 'xxxNONExxx'
+    EMPTY_DATE_COST = 99999
 
     tmp_origin_locations = [
         LOCATION_CODES['Cork'],
@@ -164,6 +178,9 @@ def pingGoogleFlights():
         print('You need to have more destinations than date ranges')
         return
 
+        for i in range(len(TRAVEL_DATES) - len(tmp_destination_locations)):
+            tmp_destination_locations.append(NO_TRAVEL_CODE + str(i))
+
     possible_trips = {}
 
     for weekend in TRAVEL_DATES:
@@ -173,11 +190,11 @@ def pingGoogleFlights():
                 combinations.append(
                     {
                         'orig': origin_airport, 
-                        'dest': dest_airport,
+                        'dest': dest_airport if not(NO_TRAVEL_CODE in dest_airport) else (NO_TRAVEL_CODE + weekend[0] + weekend[1]),
                         'depart_date': weekend[0],
                         'return_date': weekend[1],
                         'url': URL_TEMPLATE,
-                        'best_price': ''
+                        'best_price': '' if not(NO_TRAVEL_CODE in dest_airport) else EMPTY_DATE_COST
                     }
                 )
         possible_trips[weekend[0] + ' >>> ' + weekend[1]] = {
@@ -216,6 +233,9 @@ def pingGoogleFlights():
         for trip in schedule:
             try:
                 trip['best_price'] = cheapest_prices[trip['url']]
+                # TODO Remove code specific to me
+                if trip['orig'] == LOCATION_CODES['Dublin']:
+                    trip['best_price'] += 20
                 schedule_price += trip['best_price']
             except KeyError:
                 pass
@@ -228,20 +248,35 @@ def pingGoogleFlights():
     # print('\n')
     # time.sleep(1)
 
-    print('Best Price: \u20ac', sorted_by_price[0][1], sep='')
-    print('Worst Price: \u20ac', sorted_by_price[-1][1], sep='')
+    empty_dates = 0
+    for daterange in sorted_by_price[0][0]:
+        if NO_TRAVEL_CODE in daterange['dest']:
+            empty_dates += 1
+    
+    if empty_dates == 0:
+        print('Best Price: \u20ac', sorted_by_price[0][1], sep='')
+    else:
+        print('Best Price: \u20ac', sorted_by_price[0][1] - (empty_dates * EMPTY_DATE_COST), sep='')
+
+    # print('Worst Price: \u20ac', sorted_by_price[-1][1], sep='')
     print('Best Price Itinerary')
 
     inverse_location_lookup = {val: key for key, val in LOCATION_CODES.items()}
 
     for obj in sorted_by_price[0][0]:
-        print( '########################################################################################')
-        print(f'#  Dates (YYYY-MM-DD):          {obj["depart_date"]} >>> {obj["return_date"]}')
-        print(f'#  Origin:                      {inverse_location_lookup[obj["orig"]]}')
-        print(f'#  Destination:                 {inverse_location_lookup[obj["dest"]]}')
-        print(f'#  Price:                       \u20ac{obj["best_price"]}')
-        print(f'#  Flight URL:')
-        print(f'#    {obj["url"]}\n')
+        if not(NO_TRAVEL_CODE in obj["dest"]):
+            print( '########################################################################################')
+            print(f'#  Dates (YYYY-MM-DD):          {obj["depart_date"]} >>> {obj["return_date"]}')
+            print(f'#  Origin:                      {inverse_location_lookup[obj["orig"]]}')
+            print(f'#  Destination:                 {inverse_location_lookup[obj["dest"]]}')
+            print(f'#  Price:                       \u20ac{obj["best_price"]}')
+            print(f'#  Flight URL:')
+            print(f'#    {obj["url"]}\n')
+        elif NO_TRAVEL_CODE in obj["dest"]:
+            print( '########################################################################################')
+            print(f'#  Dates (YYYY-MM-DD):          {obj["depart_date"]} >>> {obj["return_date"]}')
+            print(f'#  No Travel These Dates')
+            print(f'#  Price:                       \u20ac0')
 
 
 # def show_waiting():
