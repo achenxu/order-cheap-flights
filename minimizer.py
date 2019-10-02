@@ -80,31 +80,11 @@ def build_all_urls(unique_schedules, currency,
     return unique_schedules, list(set(all_urls))
 
 
-def openWebpages(all_possible_urls):
-    # WebDriver setup
-    DRIVER_PATH = "C:\\Users\\carpe\\Desktop\\ChromeDriver\\chromedriver77"
-
-    chrome_options = Options()  
-    chrome_options.add_argument("--headless")  
-    chrome_options.add_argument("--window-size=%s" % "1920,1080")
-
-    # Open Webpage
-    driver = webdriver.Chrome(executable_path=DRIVER_PATH, options=chrome_options)
-
-    print('Opening all webpages')
-    driver.get(all_possible_urls[0])
-
-    for url in all_possible_urls[1:]:
-        driver.execute_script("window.open('" + url + "')")
-
-    print('All webpages opened')
-    return driver
-
-
 def get_cheapest_prices(chrome_driver):
     cheapest_prices = {}
-    print('Finding cheapest prices (' + str(len(chrome_driver.window_handles)) + ')')
-    for idx in range(len(chrome_driver.window_handles)):
+    number_of_windows = len(chrome_driver.window_handles)
+    print('Finding some of the cheapest prices (' + str(number_of_windows) + ')')
+    for idx in range(number_of_windows):
         chrome_driver.switch_to.window(chrome_driver.window_handles[idx])
         try:
             element1 = WebDriverWait(chrome_driver, 60).until(
@@ -116,14 +96,56 @@ def get_cheapest_prices(chrome_driver):
             print('.', end='', flush=True)
         except:
             print('Error', element1)
-    print('\nCheapest prices found')
     return cheapest_prices
+
+
+def openWebpages(all_possible_urls):
+    # WebDriver setup
+    DRIVER_PATH = "C:\\Users\\carpe\\Desktop\\ChromeDriver\\chromedriver77"
+
+    chrome_options = Options()  
+    chrome_options.add_argument("--headless")  
+    # chrome_options.add_argument("--window-size=%s" % "1920,1080")
+
+    windows_per_driver = 8
+    
+    print('Opening webpages')
+
+    prices_dict = {}
+
+    cur_url_idx = 0
+    while (cur_url_idx < len(all_possible_urls)):
+        driver = webdriver.Chrome(executable_path=DRIVER_PATH, options=chrome_options)
+        driver.get(all_possible_urls[cur_url_idx])
+        cur_url_idx += 1
+        for i in range(1, windows_per_driver):
+            if cur_url_idx < len(all_possible_urls):
+                driver.execute_script("window.open('" + all_possible_urls[cur_url_idx] + "')")
+                cur_url_idx += 1
+
+        partial_prices = get_cheapest_prices(driver)
+        prices_dict = {**prices_dict, **partial_prices}
+        driver.quit()
+    print('\nCheapest prices found')
+    return prices_dict
+
 
 # Best departing flights section
 # gws-flights-results__best-flights
 def pingGoogleFlights():
+    # tmp_origin_locations = [
+    #     LOCATION_CODES['Dublin']
+    # ]
+    # tmp_destination_locations = [
+    #     LOCATION_CODES['Amsterdam-ANY'], 
+    #     LOCATION_CODES['Prague-ANY'], 
+    #     LOCATION_CODES['Porto'],
+    #     LOCATION_CODES['Florence'],
+    #     LOCATION_CODES['Madrid']
+    # ]
+
     tmp_origin_locations = [
-        #LOCATION_CODES['Cork'], 
+        LOCATION_CODES['Cork'],
         LOCATION_CODES['Dublin']
     ]
     tmp_destination_locations = [
@@ -133,7 +155,9 @@ def pingGoogleFlights():
         LOCATION_CODES['Florence'],
         LOCATION_CODES['Madrid'],
         LOCATION_CODES['Bucharest'],
-        LOCATION_CODES['Budapest']
+        LOCATION_CODES['Budapest'],
+        LOCATION_CODES['Seville'],
+        LOCATION_CODES['Barcelona']
     ]
 
     if len(tmp_destination_locations) < len(TRAVEL_DATES):
@@ -176,29 +200,30 @@ def pingGoogleFlights():
         DEPARTURE_TIME_RANGE_START,
         DEPARTURE_TIME_RANGE_END
     )
-    print('Total URLs built:', end=' ', flush=True)
+    print('Total combinations built:', end=' ', flush=True)
 
     # print(unique_schedules)
     print(len(unique_schedules))
+    print('Total URLs built: ' + str(len(unique_urls)))
     # print(unique_urls)
 
-    chrome_driver = openWebpages(unique_urls)
-
-    cheapest_prices = get_cheapest_prices(chrome_driver)
+    cheapest_prices = openWebpages(unique_urls)
 
     schedule_totals = []
     print('Calculating schedule prices')
     for schedule in unique_schedules:
         schedule_price = 0
         for trip in schedule:
-            trip['best_price'] = cheapest_prices[trip['url']]
-            schedule_price += trip['best_price']
+            try:
+                trip['best_price'] = cheapest_prices[trip['url']]
+                schedule_price += trip['best_price']
+            except KeyError:
+                pass
         schedule_totals.append((schedule, schedule_price))
         print('.', end='', flush=True)
 
     sorted_by_price = sorted(schedule_totals, key=lambda tup: tup[1])
     print('\nSchedule prices calculated')
-    chrome_driver.close()
     # RUNNING = False
     # print('\n')
     # time.sleep(1)
@@ -206,8 +231,17 @@ def pingGoogleFlights():
     print('Best Price: \u20ac', sorted_by_price[0][1], sep='')
     print('Worst Price: \u20ac', sorted_by_price[-1][1], sep='')
     print('Best Price Itinerary')
+
+    inverse_location_lookup = {val: key for key, val in LOCATION_CODES.items()}
+
     for obj in sorted_by_price[0][0]:
-        print(obj)
+        print( '########################################################################################')
+        print(f'#  Dates (YYYY-MM-DD):          {obj["depart_date"]} >>> {obj["return_date"]}')
+        print(f'#  Origin:                      {inverse_location_lookup[obj["orig"]]}')
+        print(f'#  Destination:                 {inverse_location_lookup[obj["dest"]]}')
+        print(f'#  Price:                       \u20ac{obj["best_price"]}')
+        print(f'#  Flight URL:')
+        print(f'#    {obj["url"]}\n')
 
 
 # def show_waiting():
