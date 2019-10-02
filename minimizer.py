@@ -101,17 +101,39 @@ def openWebpages(all_possible_urls):
     return driver
 
 
+def get_cheapest_prices(chrome_driver):
+    cheapest_prices = {}
+    print('Finding cheapest prices (' + str(len(chrome_driver.window_handles)) + ')')
+    for idx in range(len(chrome_driver.window_handles)):
+        chrome_driver.switch_to.window(chrome_driver.window_handles[idx])
+        try:
+            element1 = WebDriverWait(chrome_driver, 60).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, ".flt-subhead1.gws-flights-results__price.gws-flights-results__cheapest-price")
+                    )
+                )
+            cheapest_prices[chrome_driver.current_url] = int(element1.text[1:])
+            print('.', end='', flush=True)
+        except:
+            print('Error', element1)
+    print('\nCheapest prices found')
+    return cheapest_prices
+
 # Best departing flights section
 # gws-flights-results__best-flights
 def pingGoogleFlights():
-    tmp_origin_locations = [LOCATION_CODES['Cork'], LOCATION_CODES['Dublin']]
+    tmp_origin_locations = [
+        #LOCATION_CODES['Cork'], 
+        LOCATION_CODES['Dublin']
+    ]
     tmp_destination_locations = [
         LOCATION_CODES['Amsterdam-ANY'], 
         LOCATION_CODES['Prague-ANY'], 
         LOCATION_CODES['Porto'],
         LOCATION_CODES['Florence'],
         LOCATION_CODES['Madrid'],
-        LOCATION_CODES['Bucharest']
+        LOCATION_CODES['Bucharest'],
+        LOCATION_CODES['Budapest']
     ]
 
     if len(tmp_destination_locations) < len(TRAVEL_DATES):
@@ -162,21 +184,7 @@ def pingGoogleFlights():
 
     chrome_driver = openWebpages(unique_urls)
 
-    cheapest_prices = {}
-    print('Finding cheapest prices (' + str(len(chrome_driver.window_handles)) + ')')
-    for idx in range(len(chrome_driver.window_handles)):
-        chrome_driver.switch_to.window(chrome_driver.window_handles[idx])
-        try:
-            element1 = WebDriverWait(chrome_driver, 20).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, ".flt-subhead1.gws-flights-results__price.gws-flights-results__cheapest-price")
-                    )
-                )
-            cheapest_prices[chrome_driver.current_url] = int(element1.text[1:])
-            print('.', end='', flush=True)
-        except:
-            print('Error', element1)
-    print('\nCheapest prices found')
+    cheapest_prices = get_cheapest_prices(chrome_driver)
 
     schedule_totals = []
     print('Calculating schedule prices')
