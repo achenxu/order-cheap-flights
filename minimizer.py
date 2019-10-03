@@ -35,22 +35,6 @@ LOCATION_CODES = {
     'Madrid': 'MAD',
 }
 
-# Travel dates example: [[depart, return],[depart, return],[depart, return]]
-TRAVEL_DATES = [
-    ['2019-10-17', '2019-10-20'],
-    ['2019-10-24', '2019-10-27'],
-    ['2019-10-31', '2019-11-03'],
-    ['2019-11-14', '2019-11-17'],
-    ['2019-11-21', '2019-11-24']
-]
-
-# TRAVEL_DATES = [
-#     ['2019-10-17', '2019-10-20'],
-#     ['2019-10-24', '2019-10-27'],
-#     ['2019-10-31', '2019-11-03'],
-#     ['2019-11-14', '2019-11-17']
-# ]
-
 CURRENCY_CHOICES = ['EUR', 'USD']
 
 MAX_NUMBER_STOPS = {
@@ -149,9 +133,34 @@ def openWebpages(all_possible_urls):
     return prices_dict
 
 
+def create_fixed_trips_fun(fixed_trips):
+    def filter_fixed_trips(schedule):
+        found_trips = []
+        for fix in fixed_trips:
+            found_trip = False
+            for trip in schedule[0]:
+                if (fix['dest'] == trip['dest'] and 
+                    fix['depart_date'] == trip['depart_date'] and 
+                    fix['return_date'] == trip['return_date']):
+                    found_trip = True
+            found_trips.append(found_trip)
+        return all(found_trips)
+    return filter_fixed_trips
+
+
 # Best departing flights section
 # gws-flights-results__best-flights
 def pingGoogleFlights():
+    # Inputs
+    FIXED_TRIPS = [{
+        'dest': LOCATION_CODES['Florence'],
+        'depart_date': '2019-11-14',
+        'return_date': '2019-11-17'
+    },{
+        'dest': LOCATION_CODES['Porto'],
+        'depart_date': '2019-10-31',
+        'return_date': '2019-11-03'
+    }]
     tmp_origin_locations = [
         LOCATION_CODES['Dublin']
     ]
@@ -159,10 +168,6 @@ def pingGoogleFlights():
         LOCATION_CODES['Porto'],
         LOCATION_CODES['Florence']
     ]
-
-    NO_TRAVEL_CODE = 'xxxNONExxx'
-    EMPTY_DATE_COST = 99999
-
     # tmp_origin_locations = [
     #     LOCATION_CODES['Cork'],
     #     LOCATION_CODES['Dublin']
@@ -178,20 +183,34 @@ def pingGoogleFlights():
     #     LOCATION_CODES['Seville'],
     #     LOCATION_CODES['Barcelona']
     # ]
+    # Travel dates example: [[depart, return],[depart, return],[depart, return]]
+    TRAVEL_DATES = [
+        ['2019-10-17', '2019-10-20'],
+        ['2019-10-24', '2019-10-27'],
+        ['2019-10-31', '2019-11-03'],
+        ['2019-11-14', '2019-11-17'],
+        ['2019-11-21', '2019-11-24']
+    ]
 
+    # CONSTANTS
+    NO_TRAVEL_CODE = 'xxxNONExxx'
+    EMPTY_DATE_COST = 99999
+
+    # adjusting travel destinations list for possibility of date ranges without travel
     if len(tmp_destination_locations) < len(TRAVEL_DATES):
-        # print('You need to have more destinations than date ranges')
-        # return
-
         for i in range(len(TRAVEL_DATES) - len(tmp_destination_locations)):
             tmp_destination_locations.append(NO_TRAVEL_CODE + str(i))
 
+    # Error handling
     if not tmp_origin_locations or not tmp_destination_locations:
         print('Must have at least one origin location and one destination location')
         return
+    elif len(FIXED_TRIPS) > len(TRAVEL_DATES):
+        print('Cannot fix more trips than you have date ranges')
+        return
 
+    # Generates all possible combinations of trips to form possible schedules
     possible_trips = {}
-
     for weekend in TRAVEL_DATES:
         combinations = []
         for origin_airport in tmp_origin_locations:
@@ -203,7 +222,8 @@ def pingGoogleFlights():
                         'depart_date': weekend[0],
                         'return_date': weekend[1],
                         'url': URL_TEMPLATE,
-                        'best_price': '' if not(NO_TRAVEL_CODE in dest_airport) else EMPTY_DATE_COST
+                        'best_price': EMPTY_DATE_COST
+                        #'best_price': '' if not(NO_TRAVEL_CODE in dest_airport) else EMPTY_DATE_COST
                     }
                 )
         possible_trips[weekend[0] + ' >>> ' + weekend[1]] = {
@@ -211,14 +231,18 @@ def pingGoogleFlights():
         }    
     weekends = possible_trips.keys()
     all_schedules = list(itertools.product(*[possible_trips[key]['combinations'] for key in weekends]))
+    
+    # Filters to allow schedules that do not have repeating destinations
+    # Based on the fact that you would not want to go to the same place twice
     unique_schedules = []
-
     for trip_pairing in all_schedules:
         pairing_destinations = [trip['dest'] for trip in trip_pairing]
         # print(pairing_destinations, len(set(pairing_destinations)), len(pairing_destinations))
         if len(set(pairing_destinations)) == len(pairing_destinations):
             unique_schedules.append(trip_pairing)
 
+    # Builds all urls
+    # TODO move the inputs below up into the inputs section
     unique_schedules, unique_urls = build_all_urls(
         unique_schedules,
         CURRENCY_CHOICES[0], MAX_NUMBER_STOPS[1],
@@ -226,15 +250,16 @@ def pingGoogleFlights():
         DEPARTURE_TIME_RANGE_START,
         DEPARTURE_TIME_RANGE_END
     )
-    print('Total combinations built:', end=' ', flush=True)
+    print('Total combinations built:', len(unique_schedules), sep=' ', flush=True)
 
     # print(unique_schedules)
-    print(len(unique_schedules))
     print('Total URLs built: ' + str(len(unique_urls)))
     # print(unique_urls)
 
+    # Gets cheapest prices for each destination on each date range
     cheapest_prices = openWebpages(unique_urls)
 
+    # Merges the cheapest prices with all possible combinations of schedules and calculates total schedule prices
     schedule_totals = []
     print('Calculating schedule prices')
     for schedule in unique_schedules:
@@ -242,7 +267,7 @@ def pingGoogleFlights():
         for trip in schedule:
             if (trip['url'] in cheapest_prices):
                 trip['best_price'] = cheapest_prices[trip['url']]
-                # TODO Remove code specific to me
+                # TODO Remove code specific to leaving from Dublin
                 if (trip['orig'] == LOCATION_CODES['Dublin'] and not(NO_TRAVEL_CODE in trip['dest'])):
                     trip['best_price'] += 20
                 schedule_price += trip['best_price']
@@ -254,27 +279,36 @@ def pingGoogleFlights():
     # for obj in schedule_totals:
     #     print(obj)
 
-    sorted_by_price = sorted(schedule_totals, key=lambda tup: tup[1])
+    # Filters trips based on fixed dates set as inputs
+    filter_given_trips = create_fixed_trips_fun(FIXED_TRIPS)
+    schedule_totals = filter(filter_given_trips, schedule_totals)
+
+    # Sorts total prices so that the cheapest flight can easily be found (as well as secondary options)
+    sorted_by_price = sorted(schedule_totals, key=(lambda tup: tup[1]))
+    #print(sorted_by_price)
     print('\nSchedule prices calculated')
     # RUNNING = False
     # print('\n')
     # time.sleep(1)
 
+    # Counts number of date ranges with no travel (in the cheapest schedule) so that it can adjust the price
+    # The price needs to be adjusted because of the weird way I added a large number to make the program run
+    #   and find the cheapest total. This adjustment is only for the display of the final price. It does not 
+    #   change the underlying data of the object
     empty_dates = 0
     for daterange in sorted_by_price[0][0]:
         if NO_TRAVEL_CODE in daterange['dest']:
             empty_dates += 1
     
-    if empty_dates == 0:
-        print('Best Price: \u20ac', sorted_by_price[0][1], sep='')
-    else:
-        print('Best Price: \u20ac', sorted_by_price[0][1] - (empty_dates * EMPTY_DATE_COST), sep='')
+    print('Best Price: \u20ac', sorted_by_price[0][1] - (empty_dates * EMPTY_DATE_COST), sep='')
 
     # print('Worst Price: \u20ac', sorted_by_price[-1][1], sep='')
     print('Best Price Itinerary')
 
+    # Builds inverse location lookup dictionary
     inverse_location_lookup = {val: key for key, val in LOCATION_CODES.items()}
 
+    # Formats output of cheapest travel itinerary
     for obj in sorted_by_price[0][0]:
         if not(NO_TRAVEL_CODE in obj["dest"]):
             print( '########################################################################################')
@@ -299,4 +333,8 @@ def pingGoogleFlights():
 
 # threading.Thread(target=show_waiting).start()
 # threading.Thread(target=pingGoogleFlights).start()
-pingGoogleFlights()
+
+def main():
+    pingGoogleFlights()
+
+main()
