@@ -44,6 +44,13 @@ TRAVEL_DATES = [
     ['2019-11-21', '2019-11-24']
 ]
 
+# TRAVEL_DATES = [
+#     ['2019-10-17', '2019-10-20'],
+#     ['2019-10-24', '2019-10-27'],
+#     ['2019-10-31', '2019-11-03'],
+#     ['2019-11-14', '2019-11-17']
+# ]
+
 CURRENCY_CHOICES = ['EUR', 'USD']
 
 MAX_NUMBER_STOPS = {
@@ -65,20 +72,19 @@ def build_all_urls(unique_schedules, currency,
     all_urls = []
     for combo in unique_schedules:
         for trip in combo:
-            if 'xxxNONExxx' in trip['dest']:
-                break
-            builder_url = trip['url']
-            trip['url'] = (builder_url.replace('{DEPART CODE}', trip['orig'])
-                .replace('{DEST CODE}', trip['dest'])
-                .replace('{DEPART DATE (YYYY-MM-DD)}', trip['depart_date'])
-                .replace('{RETURN DATE (YYYY-MM-DD)}', trip['return_date'])
-                .replace('{CURRENCY (EUR or USD)}', currency)
-                .replace('{MAX NUMBER OF STOPS (s:1*1;)}', max_stopovers)
-                .replace('{MAX STOPOVER TIME (ld:-180*-180;)}', max_stopover_time)
-                .replace('{DEPART TIME (dt:1500-2400;)}', 
-                    'dt:' + str(departure_time_range_start) + '-' + str(departure_time_range_end) + ';'
-                ))
-            all_urls.append(trip['url'])
+            if not('xxxNONExxx' in trip['dest']):
+                builder_url = trip['url']
+                trip['url'] = (builder_url.replace('{DEPART CODE}', trip['orig'])
+                    .replace('{DEST CODE}', trip['dest'])
+                    .replace('{DEPART DATE (YYYY-MM-DD)}', trip['depart_date'])
+                    .replace('{RETURN DATE (YYYY-MM-DD)}', trip['return_date'])
+                    .replace('{CURRENCY (EUR or USD)}', currency)
+                    .replace('{MAX NUMBER OF STOPS (s:1*1;)}', max_stopovers)
+                    .replace('{MAX STOPOVER TIME (ld:-180*-180;)}', max_stopover_time)
+                    .replace('{DEPART TIME (dt:1500-2400;)}', 
+                        'dt:' + str(departure_time_range_start) + '-' + str(departure_time_range_end) + ';'
+                    ))
+                all_urls.append(trip['url'])
     return unique_schedules, list(set(all_urls))
 
 
@@ -146,40 +152,43 @@ def openWebpages(all_possible_urls):
 # Best departing flights section
 # gws-flights-results__best-flights
 def pingGoogleFlights():
-    # tmp_origin_locations = [
-    #     LOCATION_CODES['Dublin']
-    # ]
-    # tmp_destination_locations = [
-    #     LOCATION_CODES['Porto'],
-    #     LOCATION_CODES['Florence'],
-    #     LOCATION_CODES['Madrid']
-    # ]
+    tmp_origin_locations = [
+        LOCATION_CODES['Dublin']
+    ]
+    tmp_destination_locations = [
+        LOCATION_CODES['Porto'],
+        LOCATION_CODES['Florence']
+    ]
 
     NO_TRAVEL_CODE = 'xxxNONExxx'
     EMPTY_DATE_COST = 99999
 
-    tmp_origin_locations = [
-        LOCATION_CODES['Cork'],
-        LOCATION_CODES['Dublin']
-    ]
-    tmp_destination_locations = [
-        LOCATION_CODES['Amsterdam-ANY'], 
-        LOCATION_CODES['Prague-ANY'], 
-        LOCATION_CODES['Porto'],
-        LOCATION_CODES['Florence'],
-        LOCATION_CODES['Madrid'],
-        LOCATION_CODES['Bucharest'],
-        LOCATION_CODES['Budapest'],
-        LOCATION_CODES['Seville'],
-        LOCATION_CODES['Barcelona']
-    ]
+    # tmp_origin_locations = [
+    #     LOCATION_CODES['Cork'],
+    #     LOCATION_CODES['Dublin']
+    # ]
+    # tmp_destination_locations = [
+    #     LOCATION_CODES['Amsterdam-ANY'], 
+    #     LOCATION_CODES['Prague-ANY'], 
+    #     LOCATION_CODES['Porto'],
+    #     LOCATION_CODES['Florence'],
+    #     LOCATION_CODES['Madrid'],
+    #     LOCATION_CODES['Bucharest'],
+    #     LOCATION_CODES['Budapest'],
+    #     LOCATION_CODES['Seville'],
+    #     LOCATION_CODES['Barcelona']
+    # ]
 
     if len(tmp_destination_locations) < len(TRAVEL_DATES):
-        print('You need to have more destinations than date ranges')
-        return
+        # print('You need to have more destinations than date ranges')
+        # return
 
         for i in range(len(TRAVEL_DATES) - len(tmp_destination_locations)):
             tmp_destination_locations.append(NO_TRAVEL_CODE + str(i))
+
+    if not tmp_origin_locations or not tmp_destination_locations:
+        print('Must have at least one origin location and one destination location')
+        return
 
     possible_trips = {}
 
@@ -231,16 +240,19 @@ def pingGoogleFlights():
     for schedule in unique_schedules:
         schedule_price = 0
         for trip in schedule:
-            try:
+            if (trip['url'] in cheapest_prices):
                 trip['best_price'] = cheapest_prices[trip['url']]
                 # TODO Remove code specific to me
-                if trip['orig'] == LOCATION_CODES['Dublin']:
+                if (trip['orig'] == LOCATION_CODES['Dublin'] and not(NO_TRAVEL_CODE in trip['dest'])):
                     trip['best_price'] += 20
                 schedule_price += trip['best_price']
-            except KeyError:
-                pass
+            else:
+               schedule_price += trip['best_price'] 
         schedule_totals.append((schedule, schedule_price))
         print('.', end='', flush=True)
+    
+    # for obj in schedule_totals:
+    #     print(obj)
 
     sorted_by_price = sorted(schedule_totals, key=lambda tup: tup[1])
     print('\nSchedule prices calculated')
