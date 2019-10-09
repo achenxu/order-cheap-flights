@@ -1,0 +1,6 @@
+https://www.google.com/flights?hl=en#flt=ORK./m/0k3p. 2019-10-10*/m/0k3p. ORK.2019-10-13;c:EUR;e:1;s:1*1;ld:-180*-180;dt:1500-2400;sd:1;t:f
+https://www.google.com/flights?hl=en#flt=ORK.DUB.     2019-10-10*DUB.     ORK.2019-10-13;c:EUR;e:1;s:1*1;ld:-180*-180;dt:1500-2400;sd:1;t:f
+https://www.google.com/flights?hl=en#flt=ORK./m/05ywg.2019-10-10*/m/05ywg.ORK.2019-10-13;c:EUR;e:1;s:1*1;ld:-180*-180;dt:1500-2400;sd:1;t:f
+https://www.google.com/flights?hl=en#flt=DUB./m/05ywg.2019-10-10*/m/05ywg.DUB.2019-10-13;c:EUR;e:1;s:1*1;ld:-180*-180;dt:1500-2400;sd:1;t:f
+
+https://www.google.com/flights?hl=en#flt={DEPART CODE}.{DEST CODE}.{DEPART DATE (YYYY-MM-DD)}*{DEST CODE}.{DEPART CODE}.{RETURN DATE (YYYY-MM-DD)};c:{CURRENCY (EUR or USD)};e:1;{MAX NUMBER OF STOPS (s:1*1;)}{MAX STOPOVER TIME (ld:-180*-180;)}{DEPART TIME (dt:1500-2400;)}sd:1;t:f
