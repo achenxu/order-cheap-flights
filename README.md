@@ -19,6 +19,7 @@ For instance:
 You are free for three weekends in November. You enter in all three weekends as date ranges. Next, you enter in 1 or more destinations you would like to go to on these three weekends. 
 If only one destination is entered, it will print out the cheapest weekend to travel (round-trip), the price, and the URL. 
 If more than one destination is entered, it will order the destinations into the weekends. For example, if the user wanted to attend Barcelona, Paris, and Rome, it would tell the user which order to attend the three would be the cheapest by comparing the total price of the following:
+
   Weekend 1 -> Barcelona, Weekend 2 -> Paris,     Weekend 3 -> Rome       >>>>> $XXX
   Weekend 1 -> Barcelona, Weekend 2 -> Rome,      Weekend 3 -> Paris      >>>>> $XXX
   Weekend 1 -> Paris,     Weekend 2 -> Barcelona, Weekend 3 -> Rome       >>>>> $XXX
