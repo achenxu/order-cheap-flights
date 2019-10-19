@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -8,6 +10,7 @@ from selenium.webdriver.chrome.options import Options
 import time
 import os
 import itertools
+from pathlib import Path
 # import threading
 
 
@@ -104,33 +107,37 @@ def get_cheapest_prices(chrome_driver):
 
 def openWebpages(all_possible_urls):
     # WebDriver setup
-    DRIVER_PATH = "C:\\Users\\carpe\\Desktop\\ChromeDriver\\chromedriver77"
-
-    chrome_options = Options()  
-    chrome_options.add_argument("--headless")  
-    # chrome_options.add_argument("--window-size=%s" % "1920,1080")
-
-    windows_per_driver = 8
+    # Windows
+	DRIVER_PATH = "C:\\Users\\carpe\\Desktop\\ChromeDriver\\chromedriver77"
+	# Linux
+	# DRIVER_PATH = Path("/mnt/c/Users/carpe/Desktop/ChromeDriver/chromedriver77.exe")
+	
+	chrome_options = Options()
+	chrome_options.add_argument("--headless")  
+	# chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+	# chrome_options.add_argument("--window-size=%s" % "1920,1080")
+	
+	windows_per_driver = 8
     
-    print('Opening webpages')
+	print('Opening webpages')
 
-    prices_dict = {}
+	prices_dict = {}
 
-    cur_url_idx = 0
-    while (cur_url_idx < len(all_possible_urls)):
-        driver = webdriver.Chrome(executable_path=DRIVER_PATH, options=chrome_options)
-        driver.get(all_possible_urls[cur_url_idx])
-        cur_url_idx += 1
-        for i in range(1, windows_per_driver):
-            if cur_url_idx < len(all_possible_urls):
-                driver.execute_script("window.open('" + all_possible_urls[cur_url_idx] + "')")
-                cur_url_idx += 1
+	cur_url_idx = 0
+	while (cur_url_idx < len(all_possible_urls)):
+		driver = webdriver.Chrome(executable_path=DRIVER_PATH, options=chrome_options)
+		driver.get(all_possible_urls[cur_url_idx])
+		cur_url_idx += 1
+		for i in range(1, windows_per_driver):
+			if cur_url_idx < len(all_possible_urls):
+				driver.execute_script("window.open('" + all_possible_urls[cur_url_idx] + "')")
+				cur_url_idx += 1
 
-        partial_prices = get_cheapest_prices(driver)
-        prices_dict = {**prices_dict, **partial_prices}
-        driver.quit()
-    print('\nCheapest prices found')
-    return prices_dict
+		partial_prices = get_cheapest_prices(driver)
+		prices_dict = {**prices_dict, **partial_prices}
+		driver.quit()
+	print('\nCheapest prices found')
+	return prices_dict
 
 
 def create_fixed_trips_fun(fixed_trips):

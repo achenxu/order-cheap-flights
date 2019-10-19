@@ -159,6 +159,7 @@ def create_fixed_trips_fun(fixed_trips):
 # gws-flights-results__best-flights
 def pingGoogleFlights():
     # Inputs
+    # TODO add all input validation
     # sys.argv[1]
     # tmp_origin_locations = [
     #     'Dublin'
